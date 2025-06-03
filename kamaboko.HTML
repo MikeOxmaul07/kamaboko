@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>蒲鉾扼殺ゲーム</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: sans-serif;
+      touch-action: manipulation;
+      overflow: hidden;
+    }
+
+    #gameCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: none;
+      background: #eee;
+    }
+
+    #startScreen, #resultScreen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    button {
+      font-size: 1.5rem;
+      padding: 10px 20px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="startScreen">
+  <h1>蒲鉾扼殺ゲーム</h1>
+  <button onclick="startGame()">スタート</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="resultScreen" style="display:none;">
+  <h1 id="resultText"></h1>
+  <button onclick="restartGame()">もう一回</button>
+</div>
+
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  let tiles = [];
+  let score = 0;
+  let playing = false;
+  let spawnIntervalId;
+  let gameTimerId;
+  const duration = 20000;
+
+  const images = [
+    { src: "images/good.jpeg", type: "good" },
+    { src: "images/bad1.jpeg", type: "bad" },
+    { src: "images/bad2.jpeg", type: "bad" }
+  ];
+  const loadedImages = [];
+  let loadedCount = 0;
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  images.forEach(imgData => {
+    const img = new Image();
+    img.src = imgData.src;
+    img.onload = () => {
+      loadedCount++;
+      if (loadedCount === images.length) {
+        document.getElementById("startScreen").style.display = "flex";
+      }
+    };
+    loadedImages.push({ image: img, type: imgData.type });
+  });
+
+  function getRandomTileImage() {
+    return loadedImages[Math.floor(Math.random() * loadedImages.length)];
+  }
+
+  function spawnTile() {
+    const size = 80;
+    const x = Math.random() * (canvas.width - size);
+    const speed = 3 + Math.random() * 3;
+    const tileImage = getRandomTileImage();
+    tiles.push({
+      x: x,
+      y: -size,
+      size: size,
+      speed: speed,
+      image: tileImage.image,
+      type: tileImage.type
+    });
+  }
+
+  function startGame() {
+    resizeCanvas();
+    document.getElementById("startScreen").style.display = "none";
+    document.getElementById("resultScreen").style.display = "none";
+    canvas.style.display = "block";
+    tiles = [];
+    score = 0;
+    playing = true;
+    spawnIntervalId = setInterval(spawnTile, 300);
+    gameTimerId = setTimeout(endGame, duration);
+    requestAnimationFrame(gameLoop);
+  }
+
+  function restartGame() {
+    startGame();
+  }
+
+  function endGame(message = null) {
+    playing = false;
+    clearInterval(spawnIntervalId);
+    clearTimeout(gameTimerId);
+    canvas.style.display = "none";
+    document.getElementById("resultText").innerText =
+      message || `スコア: ${score}`;
+    document.getElementById("resultScreen").style.display = "flex";
+  }
+
+  function gameLoop() {
+    if (!playing) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    tiles.forEach(tile => {
+      tile.y += tile.speed;
+      ctx.drawImage(tile.image, tile.x, tile.y, tile.size, tile.size);
+    });
+    tiles = tiles.filter(tile => tile.y < canvas.height + tile.size);
+    requestAnimationFrame(gameLoop);
+  }
+
+  canvas.addEventListener("click", e => {
+    if (!playing) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    for (let i = tiles.length - 1; i >= 0; i--) {
+      const tile = tiles[i];
+      if (
+        x >= tile.x &&
+        x <= tile.x + tile.size &&
+        y >= tile.y &&
+        y <= tile.y + tile.size
+      ) {
+        if (tile.type === "good") {
+          score++;
+          tiles.splice(i, 1);
+        } else {
+          endGame("ゲームオーバー！");
+        }
+        break;
+      }
+    }
+  });
+</script>
+</body>
+</html>
